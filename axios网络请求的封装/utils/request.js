@@ -1,50 +1,46 @@
 import axios from 'axios'
-import querystring from 'querystrings'
+import { ElMessage } from 'element-plus'
+import config from '../config/index.js'
+
+//响应拦截返回的message为空时弹出的默认信息
+const NETWORK_ERROR = '网络请求异常，请稍后再试'
 
 // 调用 axios.create() 方法，创建 axios 的实例对象
 const instance = axios.create({
   // 请求根路径
-  baseURL: 'http://www.liulongbin.top:8000',
-  timeout: 1000,
-  headers: { 'X-Custom-Header': 'foobar' }
+  baseURL: config.baseApi,
+  timeout: 8000
 })
 
-// 添加请求拦截器
+//请求拦截
 axios.interceptors.request.use(
-  //成功函数
   (config) => {
-    // 1. 获取 token 值
-    const tokenStr = store.state.tokenInfo.token
-    // 2. 判断 tokenStr 的值是否为空
-    if (tokenStr) {
-      // 3. 添加身份认证字段
-      config.headers.Authorization = `Bearer ${tokenStr}`
-    }
-
-    //对POST方法中data进行数据处理
-    if (config.methods === 'post') {
-      config.data = querystring.stringif(consfig.data)
+    const headers = config.headers
+    //验证请求头有没有带验证的凭证jwt
+    if (!headers.Authorization) {
+      headers.Authorization = ''
     }
     return config
   },
-  //失败函数
-  function (error) {
+  (error) => {
     return Promise.reject(error)
   }
 )
 
-// 添加响应拦截器
+//响应拦截
 axios.interceptors.response.use(
-  function (response) {
-    // 对响应数据做点什么
-    return response.status === 200
-      ? Promise.resolve(response)
-      : Promise.reject(response)
+  (response) => {
+    const { code, message } = response.data //code是接口状态码，和HTTP的状态码不是一回事
+    if (code === 200) {
+      response.data
+    } else {
+      //处理token失效等
+      ElMessage.error(message || NETWORK_ERROR)
+    }
+    return response
   },
-  function (error) {
-    // 对响应错误做点什么
-    const { response } = error
-    errorHandle(response.status, response.info)
+  (error) => {
+    errorHandle(error.code, error.message)
     return Promise.reject(error)
   }
 )
@@ -53,27 +49,56 @@ axios.interceptors.response.use(
 const errorHandle = (status, info) => {
   switch (status) {
     case 400:
-      console.log('语义有误')
+      ElMessage.error('语义有误')
       break
     case 401:
-      console.log('服务认证失败')
+      ElMessage.error('服务认证失败')
       break
     case 403:
-      console.log('服务器拒绝访问')
+      ElMessage.error('服务器拒绝访问')
       break
     case 404:
-      console.log('地址错误')
+      ElMessage.error('地址错误')
       break
     case 500:
-      console.log('服务器遇到意外')
+      ElMessage.error('服务器遇到意外')
       break
     case 502:
-      console.log('服务器无响应')
+      ElMessage.error('服务器无响应')
       break
     default:
-      console.log(info)
+      ElMessage.error('未知错误，请查看详细信息：' + info)
       break
   }
 }
 
-export default instance
+//包裹instance实例
+//目的是为了抹平post和get请求带的参数名不一致问题，使用的时候只用传data，在这里处理
+function request(options) {
+  //默认情况为get请求
+  options.method = options.method || 'get'
+  if (options.method.toLowerCase() === 'get') {
+    options.params = options.data
+  }
+
+  if (config.env === 'prod') {
+    //线上环境
+    instance.defaults.baseURL = config.baseApi
+  } else {
+    //mock为true为开发环境，false为测试环境
+    instance.defaults.baseURL = config.mock ? config.mockApi : config.baseApi
+  }
+  return instance(options)
+}
+
+;['get', 'post', 'put', 'delete'].forEach((item) => {
+  request[item] = function (url, data) {
+    return request({
+      method: item,
+      url,
+      data
+    })
+  }
+})
+
+export default request
