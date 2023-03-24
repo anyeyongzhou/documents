@@ -1,65 +1,29 @@
-import { createStore } from 'vuex'
+import { createRouter, createWebHistory } from 'vue-router'
+// 路由需要导向哪个组件
+import Start from '../views/Start.vue'
 
-export default createStore({
-  state: {
-    list: [
-      {
-        title: '吃饭',
-        complete: false
-      },
-      {
-        title: '睡觉',
-        complete: false
-      },
-      {
-        title: '敲代码',
-        complete: true
-      }
-    ]
+const routes = [
+  {
+    path: '/',
+    name: 'start',
+    component: Start,
+    props: true
   },
-  getters: {},
-  mutations: {
-    addTodo(state, payload) {
-      state.list.push(payload)
-    },
-    delete(state, payload) {
-      // const arr = []
-      // state.list.filters((item) => {
-      //   if (item.title !== payload.title) {
-      //     arr.push(item)
-      //   }
-      //   return arr
-      // })
-      // state.list = arr
-      state.list.splice(payload, 1)
-    },
-    clear(state, payload) {
-      state.list = payload
-    }
-  },
-  actions: {},
-  modules: {}
+  {
+    path: '/home',
+    name: 'Home',
+    // 按需引入，节约性能
+    component: () => import('@/views/HomeView.vue'),
+    props: true
+  }
+]
+
+// 创建路由
+const router = createRouter({
+  // process是一个进程
+  // process.env.BASE_URL是当前环境配置的基础路径
+  history: createWebHistory(process.env.BASE_URL),
+  routes
 })
 
-/* export default createStore({
-  state: {
-    name: 'jack'
-  },
-  getters: {},
-  mutations: {
-    setName(state, payload) {
-      state.name = payload
-    }
-  },
-  actions: {
-    // store用来提交的，类似于vue2.0的this.$store
-    async setName(store, params) {
-      setTimeout(() => {
-        store.commit('setName', params)
-      }, 2000)
-    }
-  },
-  // 模块化
-  modules: {}
-})
- */
+export default router
